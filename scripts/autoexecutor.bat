@@ -88,4 +88,32 @@ if exist "%LOCKFILE%" del "%LOCKFILE%" 2>NUL
 
 popd
 echo EXITCODE=%EC%>> "%LOG%"
+
+REM ── 30-second second pass ──
+REM Windows Task Scheduler minimum is 1 minute, so we sleep 30s and run again.
+if %EC% EQU 0 (
+    echo [WAIT] Sleeping 30s for second check...>> "%LOG%"
+    timeout /T 30 /NOBREAK >NUL 2>&1
+    goto SECOND_PASS
+)
 exit /b %EC%
+
+:SECOND_PASS
+echo ===== %date% %time% (2nd pass) =====>> "%LOG%"
+pushd "%ROOT%" >NUL 2>&1
+python scripts\run_telegram.py --check-only >> "%LOG%" 2>&1
+if %ERRORLEVEL% EQU 0 (
+    echo [IDLE] No new messages (2nd pass).>> "%LOG%"
+    popd
+    exit /b 0
+)
+echo [WORK] New messages found (2nd pass). Starting Claude...>> "%LOG%"
+echo %date% %time%> "%LOCKFILE%"
+set DISABLE_AUTOUPDATER=1
+call "%CLAUDE_EXE%" -p -c --dangerously-skip-permissions ^
+  --append-system-prompt-file "%ROOT%\CLAUDE.md" ^
+  "Check and process pending messages. Use the homunculus package: 1) TelegramAdapter.fetch_pending() 2) TaskEngine.merge_pending() 3) send acknowledgement 4) TaskEngine.begin_work() 5) execute task 6) deliver_result() 7) mark_completed() 8) finish_work(). After completing, wait 3 minutes and check again. Repeat until no more messages." ^
+  >> "%LOG%" 2>&1
+if exist "%LOCKFILE%" del "%LOCKFILE%" 2>NUL
+popd
+exit /b %ERRORLEVEL%

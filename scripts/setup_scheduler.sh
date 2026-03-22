@@ -40,7 +40,7 @@ setup_macos() {
     <key>WorkingDirectory</key>
     <string>${PROJECT_DIR}</string>
     <key>StartInterval</key>
-    <integer>60</integer>
+    <integer>30</integer>
     <key>StandardOutPath</key>
     <string>${PROJECT_DIR}/logs/launchd_stdout.log</string>
     <key>StandardErrorPath</key>
@@ -57,7 +57,7 @@ EOF
     mkdir -p "${PROJECT_DIR}/logs"
     launchctl unload "$plist_path" 2>/dev/null || true
     launchctl load "$plist_path"
-    echo "Registered: $plist_name (every 60s)"
+    echo "Registered: $plist_name (every 30s)"
     echo ""
     echo "Commands:"
     echo "  Stop:    launchctl unload $plist_path"
@@ -93,4 +93,4 @@ elif [[ "$OS" == "linux" ]]; then
 fi
 
 echo ""
-echo "Done! The bot will check for messages every 60 seconds."
+echo "Done! The bot will check for messages every 30 seconds."

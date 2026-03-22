@@ -36,7 +36,9 @@ if errorlevel 1 (
 echo Removing existing task (if any)...
 schtasks /Delete /TN "%TASK_NAME%" /F >NUL 2>&1
 
-echo Registering task (every 1 minute, hidden)...
+REM Windows Task Scheduler minimum is 1 minute, so we run every 1 min
+REM but the bat itself runs twice (0s + 30s) per invocation for 30s interval.
+echo Registering task (every 30 seconds effective, hidden)...
 schtasks /Create /TN "%TASK_NAME%" /TR "wscript.exe \"%PROJECT_DIR%\scripts\run_hidden.vbs\" \"%BAT_FILE%\"" /SC MINUTE /MO 1 /F
 if errorlevel 1 (
     echo [ERROR] Registration failed!
@@ -50,7 +52,7 @@ echo  Task registered successfully!
 echo ========================================
 echo.
 echo Task name: %TASK_NAME%
-echo Interval:  Every 1 minute
+echo Interval:  Every 30 seconds (runs twice per 1-minute cycle)
 echo.
 echo Commands:
 echo   Check:   schtasks /Query /TN "%TASK_NAME%" /FO LIST
