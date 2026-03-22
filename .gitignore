@@ -1,0 +1,53 @@
+# Environment
+.env
+.env.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Runtime data
+workspace/
+*.db
+*.db-wal
+*.db-shm
+telegram_messages.json
+discord_messages.json
+session_state.json
+working.json
+working_*.json
+new_instructions.json
+channel_sessions_cache.json
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+._*
+
+# Browser sessions (contains auth cookies)
+browser_sessions/
+
+# Coverage
+.coverage
+htmlcov/
+
+# Lock files (runtime)
+*.lock
+*.lockdir/

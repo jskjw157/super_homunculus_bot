@@ -1,0 +1,25 @@
+[project]
+name = "super-homunculus-bot"
+version = "1.0.0"
+description = "AI-powered multi-platform chat assistant using Claude Agent SDK"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+dependencies = [
+    "python-dotenv>=1.0.0",
+    "python-telegram-bot>=20.0",
+    "discord.py>=2.3.0",
+    "claude-code-sdk>=0.0.20",
+]
+
+[project.optional-dependencies]
+browser = ["playwright>=1.40.0"]
+dev = ["pytest>=7.0", "pytest-asyncio>=0.21"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
