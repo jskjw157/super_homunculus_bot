@@ -6,29 +6,45 @@ Claude AI 기반 멀티 플랫폼 챗봇 어시스턴트. **텔레그램**과 **
 
 ## 아키텍처
 
+```mermaid
+graph TD
+    TL[텔레그램 리스너] --> PA[플랫폼 어댑터]
+    DL[디스코드 리스너] --> PA
+    PA -->|Strategy Pattern| TE[작업 엔진]
+    TE -->|병합 → 잠금 → 워크스페이스| CB[Claude Agent SDK 브릿지]
+    CB -->|세션 유지 & 스트리밍| AI((Claude AI))
+    AI -->|결과| TE
+    TE -->|전달| PA
+    PA --> TL
+    PA --> DL
+
+    style AI fill:#7c3aed,color:#fff
+    style TE fill:#2563eb,color:#fff
+    style PA fill:#059669,color:#fff
 ```
-┌─────────────┐     ┌─────────────┐
-│  텔레그램    │     │  디스코드    │
-│  리스너      │     │  리스너      │
-└──────┬───────┘     └──────┬──────┘
-       │                    │
-       ▼                    ▼
-┌──────────────────────────────────┐
-│     플랫폼 어댑터 (교체 가능)     │
-│       Strategy Pattern           │
-└──────────────┬───────────────────┘
-               │
-               ▼
-┌──────────────────────────────────┐
-│          작업 엔진               │
-│  병합 → 잠금 → 워크스페이스 → AI │
-└──────────────┬───────────────────┘
-               │
-               ▼
-┌──────────────────────────────────┐
-│     Claude Agent SDK 브릿지      │
-│   (세션 유지, 스트리밍 응답)      │
-└──────────────────────────────────┘
+
+## 메시지 처리 흐름
+
+```mermaid
+sequenceDiagram
+    participant U as 사용자
+    participant L as 리스너
+    participant S as 저장소
+    participant E as 오토익스큐터
+    participant C as Claude AI
+
+    U->>L: 메시지 전송
+    L->>S: JSON/SQLite에 저장
+    Note over E: 30초마다 실행
+    E->>S: 미처리 메시지 있나?
+    S-->>E: 있음 (N개)
+    E->>E: 병합 & 잠금 획득
+    E->>C: 작업 실행
+    C->>C: 처리 (코드, 파일, 브라우징...)
+    C->>U: 결과 전송
+    C->>E: 완료
+    E->>S: 완료 처리
+    E->>E: 잠금 해제
 ```
 
 ## 주요 기능
@@ -51,18 +67,13 @@ cd super_homunculus_bot
 pip install -e ".[dev]"
 ```
 
-**Windows:**
-```
-scripts\setup.bat
-```
-더블클릭하면 Python 확인 → 패키지 설치 → .env 생성까지 자동 처리.
+**Windows:** `scripts\setup.bat` 더블클릭
 
 ### 2. 봇 토큰 설정
 
-`.env.example`을 `.env`로 복사하고 토큰을 입력합니다.
-
 ```bash
 cp .env.example .env
+# .env 파일에 봇 토큰 입력
 ```
 
 **텔레그램 봇 토큰 발급:**
@@ -92,57 +103,69 @@ python -m homunculus.platforms.discord.listener
 
 ### 4. 메시지 처리
 
-**수동 실행:**
 ```bash
+# 수동 실행
 python scripts/run_telegram.py
 python scripts/run_discord.py
+
+# 자동 스케줄링 (30초마다 체크)
+bash scripts/setup_scheduler.sh          # macOS / Linux
+scripts\register_scheduler.bat           # Windows (관리자 실행)
 ```
-
-**자동 스케줄링:**
-
-| OS | 방법 |
-|----|------|
-| macOS | `bash scripts/setup_scheduler.sh both` |
-| Linux | `bash scripts/setup_scheduler.sh both` |
-| Windows | `scripts\register_scheduler.bat` (관리자 실행) |
 
 ## 프로젝트 구조
 
-```
-super_homunculus_bot/
-├── homunculus/                  # 메인 패키지
-│   ├── core/                    # 작업 엔진, 잠금, 메모리, SQLite 저장소
-│   │   ├── engine.py            # 작업 오케스트레이션 파이프라인
-│   │   ├── lock.py              # 파일 기반 동시성 제어
-│   │   ├── memory.py            # 작업 인덱스 + 워크스페이스 관리
-│   │   └── store.py             # SQLite 메시지 큐
-│   ├── platforms/
-│   │   ├── base.py              # PlatformAdapter 추상 클래스
-│   │   ├── telegram/            # 텔레그램 어댑터
-│   │   └── discord/             # 디스코드 어댑터
-│   ├── ai/
-│   │   └── bridge.py            # Claude Agent SDK 연동
-│   └── session/
-│       └── manager.py           # 세션 라이프사이클
-├── scripts/                     # 실행 스크립트
-│   ├── run_telegram.py          # 텔레그램 처리
-│   ├── run_discord.py           # 디스코드 처리
-│   ├── setup.bat                # Windows 자동 설정
-│   ├── register_scheduler.bat   # Windows 스케줄러 등록
-│   ├── setup_scheduler.sh       # macOS/Linux 스케줄러
-│   └── get_my_id.py             # 사용자 ID 확인
-├── tests/                       # 테스트
-└── docs/                        # 문서
+```mermaid
+graph LR
+    subgraph homunculus[homunculus 패키지]
+        subgraph core[core — 핵심 엔진]
+            E[engine.py] --- LK[lock.py]
+            E --- M[memory.py]
+            E --- ST[store.py]
+        end
+        subgraph platforms[platforms — 플랫폼]
+            B[base.py] --> TG[telegram/]
+            B --> DC[discord/]
+        end
+        subgraph ai[ai — AI 연동]
+            BR[bridge.py]
+        end
+        subgraph session[session — 세션]
+            SM[manager.py]
+        end
+    end
+    core --> platforms
+    core --> ai
+    core --> session
 ```
 
 ## 디자인 패턴
 
-| 패턴 | 적용 위치 | 이유 |
-|------|-----------|------|
-| **Strategy** | `PlatformAdapter` | 텔레그램/디스코드를 엔진 수정 없이 교체 |
-| **Template Method** | `TaskEngine` | 공통 파이프라인, 플랫폼별 커스텀 스텝 |
-| **Repository** | `MessageStore` | SQLite 상세 구현을 어댑터로부터 추상화 |
-| **Singleton** | 컨텍스트별 `LockManager` | 채널당 하나의 잠금 |
+```mermaid
+classDiagram
+    class PlatformAdapter {
+        <<abstract>>
+        +fetch_pending() list
+        +send_text(chat_id, text) bool
+        +send_files(chat_id, text, paths) bool
+        +deliver_result(...)
+        +mark_completed(msg_ids)
+    }
+    class TelegramAdapter {
+        +fetch_pending() list
+        +deliver_result(...)
+    }
+    class DiscordAdapter {
+        +fetch_pending(ctx) list
+        +get_pending_contexts() list
+    }
+
+    PlatformAdapter <|-- TelegramAdapter
+    PlatformAdapter <|-- DiscordAdapter
+    TaskEngine --> PlatformAdapter : 사용
+    TaskEngine --> LockManager
+    TaskEngine --> MemoryManager
+```
 
 ## 새 플랫폼 추가하기
 

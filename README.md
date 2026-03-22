@@ -6,29 +6,45 @@ Send a message to your bot — it understands natural language, executes code, c
 
 ## Architecture
 
+```mermaid
+graph TD
+    TL[Telegram Listener] --> PA[Platform Adapters]
+    DL[Discord Listener] --> PA
+    PA -->|Strategy Pattern| TE[Task Engine]
+    TE -->|merge → lock → workspace| CB[Claude Agent SDK Bridge]
+    CB -->|session resume & streaming| AI((Claude AI))
+    AI -->|result| TE
+    TE -->|deliver| PA
+    PA --> TL
+    PA --> DL
+
+    style AI fill:#7c3aed,color:#fff
+    style TE fill:#2563eb,color:#fff
+    style PA fill:#059669,color:#fff
 ```
-┌─────────────┐     ┌─────────────┐
-│  Telegram    │     │  Discord    │
-│  Listener    │     │  Listener   │
-└──────┬───────┘     └──────┬──────┘
-       │                    │
-       ▼                    ▼
-┌──────────────────────────────────┐
-│       Platform Adapters          │
-│  (Strategy Pattern — swappable)  │
-└──────────────┬───────────────────┘
-               │
-               ▼
-┌──────────────────────────────────┐
-│         Task Engine              │
-│  merge → lock → workspace → AI  │
-└──────────────┬───────────────────┘
-               │
-               ▼
-┌──────────────────────────────────┐
-│      Claude Agent SDK Bridge     │
-│  (session resume, streaming)     │
-└──────────────────────────────────┘
+
+## Message Processing Flow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant L as Listener
+    participant S as Store
+    participant E as AutoExecutor
+    participant C as Claude AI
+
+    U->>L: Send message
+    L->>S: Save to JSON/SQLite
+    Note over E: Runs every 30s
+    E->>S: Any pending messages?
+    S-->>E: Yes (N messages)
+    E->>E: Merge & acquire lock
+    E->>C: Execute task
+    C->>C: Process (code, files, browse...)
+    C->>U: Deliver result
+    C->>E: Done
+    E->>S: Mark completed
+    E->>E: Release lock
 ```
 
 ## Features
@@ -49,6 +65,8 @@ git clone https://github.com/your-username/super_homunculus_bot.git
 cd super_homunculus_bot
 pip install -e ".[dev]"
 ```
+
+**Windows:** Double-click `scripts\setup.bat` instead.
 
 ### 2. Configure
 
@@ -89,36 +107,66 @@ python -m homunculus.platforms.discord.listener
 python scripts/run_telegram.py
 python scripts/run_discord.py
 
-# Or set up scheduled execution
-bash scripts/setup_scheduler.sh both
+# Or set up scheduled execution (auto-check every 30s)
+bash scripts/setup_scheduler.sh          # macOS / Linux
+scripts\register_scheduler.bat           # Windows (run as admin)
 ```
 
 ## Project Structure
 
-```
-super_homunculus_bot/
-├── homunculus/
-│   ├── core/              # Task engine, locking, memory, SQLite store
-│   ├── platforms/
-│   │   ├── base.py        # PlatformAdapter ABC
-│   │   ├── telegram/      # Telegram adapter, sender, listener
-│   │   └── discord/       # Discord adapter, sender, listener
-│   ├── ai/                # Claude Agent SDK bridge
-│   ├── automation/        # Browser automation (optional)
-│   └── session/           # Session lifecycle management
-├── scripts/               # Entry points & setup
-├── tests/                 # Test suite
-└── docs/                  # Documentation
+```mermaid
+graph LR
+    subgraph homunculus
+        subgraph core
+            E[engine.py] --- LK[lock.py]
+            E --- M[memory.py]
+            E --- ST[store.py]
+        end
+        subgraph platforms
+            B[base.py] --> TG[telegram/]
+            B --> DC[discord/]
+        end
+        subgraph ai
+            BR[bridge.py]
+        end
+        subgraph session
+            SM[manager.py]
+        end
+    end
+    core --> platforms
+    core --> ai
+    core --> session
 ```
 
 ## Design Patterns
 
-| Pattern | Where | Why |
-|---------|-------|-----|
-| **Strategy** | `PlatformAdapter` | Swap Telegram/Discord without touching engine |
-| **Template Method** | `TaskEngine` pipeline | Common workflow, platform-specific steps |
-| **Repository** | `MessageStore` | Abstract SQLite details from adapters |
-| **Singleton** | `LockManager` per context | One lock per channel |
+```mermaid
+classDiagram
+    class PlatformAdapter {
+        <<abstract>>
+        +fetch_pending() list
+        +send_text(chat_id, text) bool
+        +send_files(chat_id, text, paths) bool
+        +deliver_result(...)
+        +mark_completed(msg_ids)
+    }
+    class TelegramAdapter {
+        -_msg_path: str
+        +fetch_pending() list
+        +deliver_result(...)
+    }
+    class DiscordAdapter {
+        -_store: MessageStore
+        +fetch_pending(ctx) list
+        +get_pending_contexts() list
+    }
+
+    PlatformAdapter <|-- TelegramAdapter
+    PlatformAdapter <|-- DiscordAdapter
+    TaskEngine --> PlatformAdapter : uses
+    TaskEngine --> LockManager
+    TaskEngine --> MemoryManager
+```
 
 ## Adding a New Platform
 
