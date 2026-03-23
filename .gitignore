@@ -51,3 +51,8 @@ htmlcov/
 # Lock files (runtime)
 *.lock
 *.lockdir/
+
+# Dev tool artifacts
+.bkit-memory.json
+.pdca-status.json
+.claude/
