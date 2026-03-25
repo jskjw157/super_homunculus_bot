@@ -72,6 +72,23 @@ Once set up, you can message your bot with requests like:
 
 Multiple messages sent while the bot is busy are **automatically merged** and processed together in the next cycle.
 
+## Screenshots
+
+### Trading Bot Development via Discord Chat
+Chat with the bot to build a crypto trading system — from data collection and chart rendering to Binance API integration and AI decision engines.
+
+![Trading Bot Development](images/image.png)
+
+### Web Browser Automation
+Ask the bot to take a screenshot of any website. It launches a real browser, captures the page, and sends the result back.
+
+![Web Browser Automation](images/image2.png)
+
+### YouTube Video Summary
+Send a YouTube link and the bot summarizes the video content for you.
+
+![YouTube Video Summary](images/image3.png)
+
 ---
 
 ## Setup Guide
